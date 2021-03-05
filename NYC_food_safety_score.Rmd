@@ -1,0 +1,144 @@
+---
+title: "QTM150 Final Project"
+author: '2377470'
+date: "11/28/2020"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+options(stringsAsFactors=F) 
+doh <- read.csv("NYC.csv")
+
+doh$year <- substring(c(doh$GRADE.DATE),7,10) # This takes string and only keeps the characters beginning in position 7 to position 10
+str(doh$year)
+
+year2019 <- subset(doh, year=="2019") # Create a subset for just restaurants graded in year 2019
+m2019 <- subset(year2019, BORO=="Manhattan") 
+# Create a subset for just restaurants in Manhattan graded in 2019, this will be our main dataset
+```
+
+Part A:  
+  
+1. We want to investigate if there is a relationship between the mean health code violation score and the council district or the cuisine type of the restaurants in 2019 within Manhattan. We created a subset that includes observations only from the year 2019 and the borough of Manhattan to focus on a certain year and area. We chose 2019 since it was the most recent year in the data set and could provide the most current data. We chose Manhattan because it is the most populated borough in New York with a large number and variety of restaurants.
+  
+2. Numerical response variable: Score. 
+Rationale: Score is a dependent variable; we can look at how mean score changes when we change another variable e.g. location
+```{r}
+summary(m2019$SCORE)
+#higher score = less safe food
+ggplot(m2019, aes(SCORE))+
+  geom_bar()+
+  labs(x="Total Score", y="Count", title="Figure 1: Food Violation Scores in Manhattan in 2019")
+
+```
+
+
+3. Unusual observations in this data set is having a negative score since 0 means the restaurant is not dangerous at all and fully passes inspection. We recoded the score response variable by converting all values less than 0 to NA. The new response variable is now called SCORE1.
+```{r}
+m2019$SCORE1 <- m2019$SCORE
+m2019$SCORE1[m2019$SCORE<0] <- NA #score1 == cleaned score data of m2019
+summary(m2019$SCORE1)
+```
+
+4. Explanatory variable: cuisine type. 
+Our main explanatory variable is the cuisine of the restaurants. We want to see if there’s a specific relationship between the cuisine type and the average health code violation score. 
+```{r}
+table(m2019$CUISINE.DESCRIPTION)
+
+m2019c <- m2019 %>%
+  group_by(m2019$CUISINE.DESCRIPTION) %>%
+  mutate(count = n()) %>%
+  mutate(avg=mean(SCORE1, na.rm=T)) %>%
+  filter(count >= 1000) %>%
+  arrange(desc(count))
+
+table(m2019c$CUISINE.DESCRIPTION)
+ggplot(m2019c, aes(x = CUISINE.DESCRIPTION)) +  
+  geom_bar(aes(y = (..count..)))+labs(x = "Cuisine Type", y = "Count", title = "Figure 2: Frequency of Different Cuisine Restaurants in Manhattan")
+
+```
+
+5. There are no unusual observations. All observations seem to have appropriate data since we have filtered out outcomes with less/insignificant observations. 
+  
+6. We expect that certain cuisines have a higher or lower average health code violation score based on their amount of required food preparation. For example, we expect that the cafes would have relatively lower average health code violation scores as they do not serve as much food as other restaurants. 
+
+7. 
+```{r}
+ggplot(m2019c, aes(x = as.factor(CUISINE.DESCRIPTION), y = avg))+
+  geom_point()+labs(x="Cuisine Type", y="Mean Food Violation Score", title="Figure 3: Mean Food Violation Score by Cuisine Type in Manhattan")
+```
+
+8. The plot shows that Chinese and Japanese are cuisines with the highest mean health code violation scores while cafes have the lowest mean health code violation score. As we predicted, cuisines with more food preparation have higher mean health code violation scores as opposed to cafes that mainly serve drinks and simple food items. Although it seems as if there is a relationship between cuisine and mean health code violation score, this relationship is still fairly weak because there is not a large difference between the highest and lowest mean score.
+  
+
+Part B:  
+  
+1. New response variable: council district. 
+We chose council district as our second explanatory variable because it’s a variable that could potentially show us the relationship between restaurant location within Manhattan and the mean health code violation scores. We are interested in seeing if certain council districts have higher mean health code violation scores than others.      
+
+2. 
+```{r}
+summary_m2019 <- m2019c %>%
+  group_by(CUISINE.DESCRIPTION, Council.District) %>%
+  arrange(SCORE1) %>%
+  summarise(avg = mean(SCORE1, na.rm = T))
+```
+
+3. 
+```{r}
+ggplot(summary_m2019,aes(x = as.factor(CUISINE.DESCRIPTION), y = avg))+geom_point(aes(color=CUISINE.DESCRIPTION))+ theme(axis.text.x=element_blank(), axis.ticks.x=element_blank()) + labs(x="Cuisine Type",y="Mean Food Violation Score", title="Figure 4: Mean Score of Cuisine Type by Council District")+ facet_wrap(~Council.District)
+```
+
+4. The distribution of mean scores of each cuisine type is very similar across every district, except district 8. District 8 displays almost the opposite of every other one with Chinese being one of the lowest and American being one of the highest. This new plot differs from the one produced in Part A by districts 5,6,7,8,9 and 10. This did match our expectation since these districts have the lowest number of observations, meaning they are not as significant as others and approximate the population as well as the others. 
+```{r}
+ggplot(m2019, aes(as.factor(Council.District))) + geom_bar()+
+  labs(x="Manhattan Council District", y="Number of observations", title="Figure 5: Number of Restaurants by Council District in Manhattan")
+```
+
+5. We can improve our plot by excluding these 6 districts and NAs. We will create a new variable/subset of the council district that excludes these, and then facetwrap by that instead of all the council districts like before. It is necessary to do this so that every plot displayed has a similar number of observations and, therefore, approximates the population the same way. 
+
+6. This new plot shows the mean score by cuisine type in council districts 1-4. This modified plot shows cafe/coffee/tea as having the lowest mean score in every district and Chinese or Japanese as having the highest mean score in every district, whereas the previous one that included districts 5-10 with lower observations did not. Every section of this plot follows a similar pattern/relationship with the highest/lowest means being of the same cuisine, whereas the other does not and is more variable due to not having enough observations. 
+```{r}
+summary1_m2019_mod <- summary_m2019 %>%
+  filter(Council.District < 5)
+ggplot(summary1_m2019_mod,aes(x = as.factor(CUISINE.DESCRIPTION), y = avg))+geom_point(aes(color=CUISINE.DESCRIPTION))+ theme(axis.text.x=element_blank(), axis.ticks.x=element_blank()) + labs(x="Cuisine Type",y="Mean Food Violation Score", title="Figure 6: Mean Score of Cuisine Type by Council Districts 1-4")+ facet_wrap(~Council.District)
+```
+
+7. The other explanatory variable we chose to use with Cuisine instead of Council District is Violation Code. We chose this variable to be used instead of our secondary one to see if certain violation codes are more prominent in each type of cuisine. Since we already looked at locational relationships by narrowing our search down to Manhattan and then by council district, we wanted to explore the possible relationship between only the type of food served and violation occurred. 
+  
+8. We cleaned the data to show violation codes with more than 1000 observations for a more statistically significant relationship between the values. The plot includes 5 violation codes (6C, 8A, 10B, and 10F). This plot is different from others since it displays mean food score by cuisine for certain violation codes instead of council districts. Overall, it is similar to the others since Chinese has the highest average score within most violations and Cafes/Coffee shops have the lowest. 
+Only thing that is different is 8A and 10F -- 8A is a higher mean score overall and 10F is lower -- could be because of the description of the violation; one is really gross and the other is minor.
+
+```{r}
+table(m2019$VIOLATION.CODE)
+m2019vc <- m2019c %>%
+  group_by(VIOLATION.CODE) %>%
+  mutate(count = n()) %>%
+  mutate(avg=mean(SCORE1, na.rm=T)) %>%
+  filter(count >= 1000) %>%
+  arrange(desc(count))
+table(m2019vc$VIOLATION.CODE)
+
+#summary table
+summary2_m2019 <- m2019vc %>%
+  group_by(CUISINE.DESCRIPTION, VIOLATION.CODE) %>%
+  arrange(SCORE1) %>%
+  summarise(avg = mean(SCORE1, na.rm = T))
+summary2_m2019
+
+#plot of all variables
+ggplot(summary2_m2019,aes(x = as.factor(CUISINE.DESCRIPTION), y = avg))+geom_point(aes(color=CUISINE.DESCRIPTION))+
+  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  labs(x="Cuisine Type",y="Mean Food Violation Score", title="Figure 7: Mean Score of Cuisine Type by Top5 Violation Code")+
+  facet_wrap(~VIOLATION.CODE)
+
+#6C- Food not protected from potential source of contamination during storage, preparation, transportation and display or service.
+#6D- Food contact surface not properly washed, rinsed, and sanitized after each use and following any activity in which contamination may have occurred.
+#8A- facility not vermin proof. Harborage or conditions conducive to attracting vermin to the premises and/or allowing vermin to exist.
+#10B- Plumbing not properly installed or maintained; anti-siphonage or backflow prevention device not provided where required; equipment or floor not properly drained; sewage disposal system in disrepair or not functioning properly.
+#10F- Non-food contact surface improperly constructed. Unacceptable material used. Non-food contact surface or equipment improperly maintained and/or not properly sealed, raised, spaced or movable to allow accessibility for cleaning on all sides, above and underneath the unit.
+```
+
+9. In conclusion, we learned that certain cuisines such as Chinese and Japanese have higher mean health code violation scores than other types of cuisines like cafes, probably due to the fact that there is more food preparation required for those cuisines. We also learned that mean health code violation scores for each cuisine are similar across council districts except for council districts with few observations. This makes sense because smaller sample sizes do not approximate the population as well and therefore do not show the true relationship as well. Lastly, the relationship we observed between mean score and cuisine was consistent when we added the violation code variable, but we saw that violation codes with major health code violations such as 8A (facility not vermin proof) showed higher mean scores overall as opposed to more minor health code violations such as 10F (non-food contact surface improperly constructed). Overall, we observed a relationship between cuisine and mean health code violation score that was fairly consistent across council districts and violation codes.
